@@ -2,46 +2,50 @@
 // March 1, 2023
 // This is the file that will have all the AES functions.
 // It leverages the crypto-js library to do the heavy lifting.
+// It also leverages the fs library to read and write files.
 
-const { generateKey } = require('crypto');
+// Imports
+const fs = require('fs');
 const crypto = require('crypto');
-// Reads a local json file and returns the data
-function readJSONFile(file) {
-    // Read the file using the file system
-    const fs = require('fs');
-    let rawData = fs.readFileSync(file);
-    let messages = JSON.parse(rawData);
-    return JSON.stringify(messages);
-}
+const iv = crypto.randomBytes(16);
+const key = crypto.randomBytes(32);
 
-function makeKey() {
-    return crypto.randomBytes(32);
-}
-
-function Encrypt(message, key) {
-    const iv = crypto.randomBytes(16);
+function Encrypt(file) {
+    let rawData = fs.readFileSync(file, 'utf-8');
+    console.log("The raw text is:", rawData);
     const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-    let encrypted = cipher.update(message, 'utf-8', 'hex');
+    let encrypted = cipher.update(rawData, 'utf-8', 'hex');
     encrypted += cipher.final('hex');
     return encrypted;
 }
 
-
-// Tests the readJSONFile function
-function testReadJSONFile() {
-    let file = readJSONFile("message.json");
-    console.log("The file is running", file);
+function Decrypt(encryptedData, key, iv) {
+    try {
+      const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+      let encryptedBuffer = Buffer.from(encryptedData, 'hex');
+      let decrypted = decipher.update(encryptedBuffer, 'utf-8');
+      decrypted += decipher.final('utf-8');
+      return decrypted;
+    } catch (error) {
+      console.error('Decryption error:', error);
+      return null;
+    }
+}
+  
+function writeEncryptedMessage(file) {
+    let encrypted = Encrypt(file);
+    fs.writeFileSync("encryptedMessage.json", encrypted);
 }
 
-function testMakeKey() {
-    let key = makeKey();
-    console.log("The key is", key);
+// Decrypt the message from a file and write it to a file
+function writeDecryptedMessage(file, key, iv) {
+    let textFromJsonFile = fs.readFileSync(file, 'utf-8');
+    console.log("The encrypted text is:", textFromJsonFile);
+    let decrypted = Decrypt(textFromJsonFile, key, iv);
+    console.log("The decrypted text is:", decrypted);
+    fs.writeFileSync("decryptedMessage.json", decrypted);
 }
 
-let encMsg = Encrypt(readJSONFile("message.json"), crypto.randomBytes(32));
-console.log("The encrypted message is:", encMsg);
-
-
-//* TESTS *//
-testReadJSONFile();
-testMakeKey();
+//* Running the functions *//
+writeEncryptedMessage("message.json");
+writeDecryptedMessage("encryptedMessage.json", key, iv);
